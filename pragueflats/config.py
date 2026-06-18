@@ -7,7 +7,7 @@ DATA_DIR = ROOT / "data"
 DB_PATH = DATA_DIR / "flats.db"
 
 # Work location — Mapy.com geocode of Zápova 1559/18, Praha 5 (confirmed in step 1).
-WORK_ADDRESS = "Zápova 1559/18, Praha 5"
+WORK_ADDRESS = "Zapova 1559/18, Praha 5"
 WORK_LAT, WORK_LON = 50.0744, 14.3906
 
 # Tunable default rent ceiling (all-in). Used by the hard filter in step 3.
