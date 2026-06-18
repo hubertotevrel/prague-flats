@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from datetime import datetime  # noqa: E402
 
-from pragueflats import db, notify  # noqa: E402
+from pragueflats import config, db, notify  # noqa: E402
 
 T = "2026-06-18T08:00:00+00:00"
 ACTIVE = datetime(2026, 6, 18, 12, 0)   # noon Prague — pings allowed
@@ -42,7 +42,7 @@ def main():
     conn = db.connect(":memory:")
     db.init(conn)
     msgs = []
-    send = lambda t: (msgs.append(t) or True)  # noqa: E731
+    send = lambda t, reply_markup=None: (msgs.append(t) or True)  # noqa: E731
 
     seed(conn, 1, 0.80)
     seed(conn, 2, 0.78)
@@ -83,6 +83,11 @@ def main():
     msgs.clear()
     ok = notify.run_digest(conn, send=send)
     check("digest: one message, mentions matches", ok and len(msgs) == 1 and "match" in msgs[0])
+
+    # Map button (when a public map URL is configured)
+    mk = notify._map_markup()
+    check("map button links to configured URL",
+          mk is None or mk["inline_keyboard"][0][0]["url"] == config.MAP_URL)
 
     print("\nALL NOTIFIER CHECKS PASSED")
 

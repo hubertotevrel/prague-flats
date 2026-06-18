@@ -173,10 +173,11 @@ def cmd_top(args):
 
 
 def _telegram_sender(token, chat_id, session):
-    def send(text):
-        r = session.post(f"https://api.telegram.org/bot{token}/sendMessage", timeout=30,
-                         data={"chat_id": chat_id, "text": text,
-                               "disable_web_page_preview": True})
+    def send(text, reply_markup=None):
+        data = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
+        if reply_markup:
+            data["reply_markup"] = json.dumps(reply_markup)
+        r = session.post(f"https://api.telegram.org/bot{token}/sendMessage", timeout=30, data=data)
         return bool(r.json().get("ok"))
     return send
 

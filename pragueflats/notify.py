@@ -23,6 +23,13 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def _map_markup():
+    """Telegram inline keyboard with a tap-to-open Map button (if a public URL is set)."""
+    if not config.MAP_URL:
+        return None
+    return {"inline_keyboard": [[{"text": "🗺 Open map", "url": config.MAP_URL}]]}
+
+
 def in_quiet_hours(now: datetime | None = None) -> bool:
     """True when instant pings should be held (config quiet window, Prague local time)."""
     if now is None:
@@ -89,7 +96,7 @@ def run_instant(conn, *, send, threshold: float | None = None, cap: int = 10,
                  f"Top picks:"]
         lines += [_fmt_flat(r, i) for i, r in enumerate(pending[:5], 1)]
         lines.append("You'll get an instant ping whenever a new top flat appears.")
-        send("\n\n".join(lines))
+        send("\n\n".join(lines), reply_markup=_map_markup())
         conn.execute(
             """UPDATE listings SET notified_at = ? WHERE score >= ? AND notified_at IS NULL
                AND id NOT IN (SELECT listing_id FROM status_tracker WHERE status = 'dismissed')""",
@@ -125,4 +132,4 @@ def run_digest(conn, *, send, top_n: int = 8) -> bool:
         lines += [_fmt_flat(r, i) for i, r in enumerate(rows[:top_n], 1)]
     else:
         lines.append("No matches right now — widen the ceiling or districts in config.")
-    return send("\n\n".join(lines))
+    return send("\n\n".join(lines), reply_markup=_map_markup())

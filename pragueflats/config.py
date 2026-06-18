@@ -35,3 +35,7 @@ NOTIFY_THRESHOLD = 0.75
 # A flat found during quiet hours isn't dropped — it pings at the next waking run.
 QUIET_START_HOUR = 19   # 19:00 (7pm)
 QUIET_END_HOUR = 8      # 08:00 (8am)
+
+# Public URL of the hosted Leaflet map (GitHub Pages). When set, the Telegram digest
+# carries a tap-to-open "Open map" button. Empty string = no button.
+MAP_URL = "https://hubertotevrel.github.io/prague-flats/"
