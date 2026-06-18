@@ -25,6 +25,8 @@ class RawListing:
     geo_precision: str | None   # "address" | "street" | ... -> drives the confidence band
     is_agency: bool
     premise_name: str | None
+    charges_czk: int | None = None   # real service+utility charges when the source gives them
+                                     # (Bezrealitky does) -> real all-in; None -> estimate it
     images: list[str] = field(default_factory=list)
     raw: dict = field(default_factory=dict)
 

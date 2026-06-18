@@ -25,11 +25,14 @@ def _clamp01(x: float) -> float:
     return max(0.0, min(1.0, x))
 
 
-def all_in_cost(base_price: int | None, area_m2: float | None) -> tuple[int | None, bool]:
-    """Returns (all_in_czk, is_estimated). From the list view we only have base rent, so
-    this is an estimate flagged True; a detail-page fetch (later) can replace it."""
+def all_in_cost(base_price: int | None, area_m2: float | None,
+                charges: int | None = None) -> tuple[int | None, bool]:
+    """Returns (all_in_czk, is_estimated). When the source gives real charges (Bezrealitky)
+    the all-in is exact and flagged False; otherwise we estimate from area and flag True."""
     if base_price is None:
         return None, False
+    if charges is not None:
+        return base_price + charges, False
     extra = max(ALLIN_MIN_EXTRA_CZK, round((area_m2 or 30) * ALLIN_PER_M2_CZK))
     return base_price + extra, True
 

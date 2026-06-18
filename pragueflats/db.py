@@ -68,6 +68,15 @@ CREATE TABLE IF NOT EXISTS commute_cache (
     computed_at TEXT NOT NULL
 );
 
+-- Address -> GPS via Mapy, for sources that don't ship coordinates (iDnes). Cached so an
+-- address is geocoded once.
+CREATE TABLE IF NOT EXISTS geocode_cache (
+    query_key   TEXT PRIMARY KEY,
+    latitude    REAL,
+    longitude   REAL,
+    computed_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_sources_listing ON sources(listing_id);
 CREATE INDEX IF NOT EXISTS idx_price_history_src ON price_history(source_row_id);
 CREATE INDEX IF NOT EXISTS idx_status ON status_tracker(status);
@@ -99,11 +108,15 @@ _LISTING_SCORE_COLS = {
 }
 
 
+_SOURCE_COLS = {"charges_czk": "INTEGER"}  # real charges (Bezrealitky), step 4
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
-    have = {r["name"] for r in conn.execute("PRAGMA table_info(listings)")}
-    for name, typ in _LISTING_SCORE_COLS.items():
-        if name not in have:
-            conn.execute(f"ALTER TABLE listings ADD COLUMN {name} {typ}")
+    for table, cols in (("listings", _LISTING_SCORE_COLS), ("sources", _SOURCE_COLS)):
+        have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        for name, typ in cols.items():
+            if name not in have:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {typ}")
 
 
 def init(conn: sqlite3.Connection) -> None:

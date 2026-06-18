@@ -9,10 +9,16 @@ import argparse
 import json
 import os
 
-from pragueflats import commute, config, db, scoring
+from pragueflats import commute, config, db, geo, scoring
 from pragueflats.http import make_session
 from pragueflats.ingest import ingest
-from pragueflats.portals import sreality
+from pragueflats.portals import bezrealitky, idnes, sreality
+
+SOURCES = [
+    ("sreality", sreality.fetch),
+    ("bezrealitky", bezrealitky.fetch),
+    ("idnes", idnes.fetch),
+]
 
 
 def _load_dotenv(path=".env"):
@@ -30,14 +36,24 @@ def _load_dotenv(path=".env"):
 def cmd_ingest(args):
     conn = db.connect()
     db.init(conn)
-    print(f"Crawling Sreality (up to {args.pages} pages)…")
-    listings = list(sreality.fetch(max_pages=args.pages))
-    report = ingest(conn, listings)
+    print(f"Crawling sources (up to {args.pages} pages each)…")
+    all_raws, down = [], []
+    for name, fetch in SOURCES:
+        try:
+            raws = list(fetch(max_pages=args.pages))
+            all_raws.extend(raws)
+            print(f"  {name:<12} {len(raws)} listings")
+        except Exception as e:  # one source failing must never sink the whole run
+            down.append(name)
+            print(f"  {name:<12} DOWN — {type(e).__name__}: {e}")
+    report = ingest(conn, all_raws)
     conn.commit()
 
     total = conn.execute("SELECT COUNT(*) FROM listings").fetchone()[0]
-    print(f"\nSreality ingest — {report.summary()}")
-    print(f"  total flats in DB: {total}")
+    print(f"\nIngest — {report.summary()}")
+    print(f"  total canonical flats in DB: {total}")
+    if down:
+        print(f"  sources down today: {', '.join(down)}")
     for c in report.price_changes[:10]:
         arrow = "↓" if (c.old_price or 0) > (c.new_price or 0) else "↑"
         print(f"  price {arrow} {c.old_price}→{c.new_price}  {c.url}")
@@ -74,34 +90,45 @@ def cmd_score(args):
         print("GOOGLE_MAPS_API_KEY not set — add it to .env (see README step 3).")
         return
 
+    mapy_key = os.environ.get("MAPY_API_KEY")
     conn = db.connect()
     db.init(conn)
     session = make_session()
     departure = commute.next_morning_peak_utc()
     now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
-    # One candidate per canonical flat, priced at its cheapest active source.
+    # One candidate per canonical flat, from its cheapest active source by all-in cost
+    # (base + real charges when the source provides them).
     rows = conn.execute(
         """SELECT l.id, l.disposition, l.area_m2, l.district, l.latitude, l.longitude,
-                  MIN(s.price_czk) AS base_price
+                  l.address, s.price_czk AS base_price, s.charges_czk AS charges
            FROM listings l
-           JOIN sources s ON s.listing_id = l.id AND s.is_active = 1
-           WHERE s.price_czk IS NOT NULL
-           GROUP BY l.id""").fetchall()
+           JOIN sources s ON s.id = (
+               SELECT s2.id FROM sources s2
+               WHERE s2.listing_id = l.id AND s2.is_active = 1 AND s2.price_czk IS NOT NULL
+               ORDER BY (s2.price_czk + COALESCE(s2.charges_czk, 0)) ASC LIMIT 1)
+        """).fetchall()
 
-    n_pass = n_scored = 0
+    n_pass = n_scored = n_geo = 0
     cache_before = conn.execute("SELECT COUNT(*) FROM commute_cache").fetchone()[0]
     for r in rows:
-        base, area = r["base_price"], r["area_m2"]
-        all_in, est = scoring.all_in_cost(base, area)
+        base, area, charges = r["base_price"], r["area_m2"], r["charges"]
+        all_in, est = scoring.all_in_cost(base, area, charges)
         if not scoring.passes_hard_filters(r["disposition"], base, all_in, est):
             conn.execute(
                 "UPDATE listings SET passes_filters=0, all_in_czk=?, all_in_estimated=?, "
                 "score=NULL, scored_at=? WHERE id=?", (all_in, int(est), now, r["id"]))
             continue
         n_pass += 1
-        minutes = commute.transit_minutes(conn, r["latitude"], r["longitude"],
-                                          api_key=api_key, session=session, departure=departure)
+        lat, lon = r["latitude"], r["longitude"]
+        if (lat is None or lon is None) and r["address"] and mapy_key:
+            lat, lon = geo.geocode(conn, r["address"], api_key=mapy_key, session=session)
+            if lat is not None:
+                conn.execute("UPDATE listings SET latitude=?, longitude=? WHERE id=?",
+                             (lat, lon, r["id"]))
+                n_geo += 1
+        minutes = commute.transit_minutes(conn, lat, lon, api_key=api_key,
+                                          session=session, departure=departure)
         ppm = base / area if base and area else None
         sc, breakdown = scoring.score(minutes, ppm, r["district"])
         conn.execute(
@@ -113,7 +140,7 @@ def cmd_score(args):
     api_calls = conn.execute("SELECT COUNT(*) FROM commute_cache").fetchone()[0] - cache_before
     notify = conn.execute(
         "SELECT COUNT(*) FROM listings WHERE score >= ?", (config.NOTIFY_THRESHOLD,)).fetchone()[0]
-    print(f"Scored {n_scored} flats ({n_pass} passed hard filters of {len(rows)}); "
+    print(f"Scored {n_scored} flats ({n_pass} passed of {len(rows)}); {n_geo} geocoded, "
           f"{api_calls} new commute lookups; {notify} above notify threshold "
           f"({config.NOTIFY_THRESHOLD}).")
     conn.close()

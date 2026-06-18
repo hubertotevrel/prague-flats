@@ -80,11 +80,11 @@ def _upsert_source(conn, listing_id: int, rl: RawListing, now: str, report: Inge
     if row is None:
         cur = conn.execute(
             """INSERT INTO sources (listing_id, source, source_id, url, is_agency,
-                   premise_name, price_czk, images_json, raw_json,
+                   premise_name, price_czk, charges_czk, images_json, raw_json,
                    first_seen_at, last_seen_at, is_active)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,1)""",
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1)""",
             (listing_id, rl.source, rl.source_id, rl.url, int(rl.is_agency),
-             rl.premise_name, rl.price_czk, images_json, raw_json, now, now),
+             rl.premise_name, rl.price_czk, rl.charges_czk, images_json, raw_json, now, now),
         )
         src_id = cur.lastrowid
         conn.execute(
@@ -97,10 +97,10 @@ def _upsert_source(conn, listing_id: int, rl: RawListing, now: str, report: Inge
     src_id, old_price = row["id"], row["price_czk"]
     conn.execute(
         """UPDATE sources SET url = ?, is_agency = ?, premise_name = ?, price_czk = ?,
-               images_json = ?, raw_json = ?, last_seen_at = ?, is_active = 1
+               charges_czk = ?, images_json = ?, raw_json = ?, last_seen_at = ?, is_active = 1
            WHERE id = ?""",
-        (rl.url, int(rl.is_agency), rl.premise_name, rl.price_czk, images_json, raw_json,
-         now, src_id),
+        (rl.url, int(rl.is_agency), rl.premise_name, rl.price_czk, rl.charges_czk,
+         images_json, raw_json, now, src_id),
     )
     if rl.price_czk is not None and rl.price_czk != old_price:
         conn.execute(
