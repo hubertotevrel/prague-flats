@@ -1,0 +1,49 @@
+name: pipeline
+
+# The hands-off loop: crawl all sources, score, send instant alerts, and commit the
+# updated SQLite back to the repo (the "git scraping" state). Runs every 2h across the
+# active window (~06:00–22:00 Prague = 04:00–20:00 UTC) and on demand.
+on:
+  schedule:
+    - cron: "0 4-20/2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pipeline          # never let two runs commit state at once
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: ingest -> score -> notify
+        env:
+          MAPY_API_KEY: ${{ secrets.MAPY_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python run.py ingest --pages 6
+          python run.py score
+          python run.py notify
+
+      - name: commit state
+        run: |
+          git config user.name "flat-hunt-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -f data/flats.db
+          git commit -m "state: $(date -u +%Y-%m-%dT%H:%MZ)" || { echo "no state change"; exit 0; }
+          git pull --rebase --autostash
+          git push

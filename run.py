@@ -9,7 +9,7 @@ import argparse
 import json
 import os
 
-from pragueflats import commute, config, db, geo, scoring
+from pragueflats import commute, config, db, geo, notify, scoring
 from pragueflats.http import make_session
 from pragueflats.ingest import ingest
 from pragueflats.portals import bezrealitky, idnes, sreality
@@ -172,6 +172,46 @@ def cmd_top(args):
     conn.close()
 
 
+def _telegram_sender(token, chat_id, session):
+    def send(text):
+        r = session.post(f"https://api.telegram.org/bot{token}/sendMessage", timeout=30,
+                         data={"chat_id": chat_id, "text": text,
+                               "disable_web_page_preview": True})
+        return bool(r.json().get("ok"))
+    return send
+
+
+def _telegram_or_none():
+    _load_dotenv()
+    token, chat = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
+    if not token or not chat:
+        print("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set (see .env / GitHub secrets).")
+        return None
+    return _telegram_sender(token, chat, make_session())
+
+
+def cmd_notify(args):
+    send = _telegram_or_none()
+    if not send:
+        return
+    conn = db.connect()
+    db.init(conn)
+    n = notify.run_instant(conn, send=send)
+    print(f"Instant alerts: {n} flat(s) covered.")
+    conn.close()
+
+
+def cmd_digest(args):
+    send = _telegram_or_none()
+    if not send:
+        return
+    conn = db.connect()
+    db.init(conn)
+    ok = notify.run_digest(conn, send=send)
+    print(f"Digest sent: {ok}")
+    conn.close()
+
+
 def main():
     p = argparse.ArgumentParser(description="Prague flat-hunt pipeline")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -189,6 +229,12 @@ def main():
     pt = sub.add_parser("top", help="show the top-ranked flats")
     pt.add_argument("-n", type=int, default=15)
     pt.set_defaults(func=cmd_top)
+
+    pn = sub.add_parser("notify", help="Telegram: instant alerts for new high-score flats")
+    pn.set_defaults(func=cmd_notify)
+
+    pd = sub.add_parser("digest", help="Telegram: twice-daily digest of top matches")
+    pd.set_defaults(func=cmd_digest)
 
     args = p.parse_args()
     args.func(args)

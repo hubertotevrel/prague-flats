@@ -105,6 +105,7 @@ _LISTING_SCORE_COLS = {
     "score_json": "TEXT",
     "passes_filters": "INTEGER",
     "scored_at": "TEXT",
+    "notified_at": "TEXT",   # set when an instant alert fired -> never re-ping (step 6)
 }
 
 

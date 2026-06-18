@@ -6,14 +6,27 @@ sends a Telegram message for top matches (plus a morning/evening digest). A Leaf
 of the shortlist is published to GitHub Pages. State lives in a SQLite DB committed back
 to the repo ("git scraping").
 
-**Status:** Steps 1–2 built (verification + Sreality ingest engine). Steps 3–6 pending.
+**Status:** Steps 1–4 + 6 built (3-source ingest, commute/scoring, Telegram alerts, cloud
+automation). Step 5 (map dashboard) pending.
 
 Run the pipeline:
 ```bash
-python run.py ingest          # crawl Sreality, store new/changed listings
+python run.py ingest          # crawl all 3 sources, store new/changed listings
+python run.py score           # hard filters + commute time + 0–1 score
+python run.py top -n 15       # show the top-ranked flats
+python run.py notify          # Telegram: instant alerts for new high-score flats
+python run.py digest          # Telegram: snapshot of current top matches
 python run.py stats           # what's in the database
-python tests/test_acceptance.py   # idempotency + price-change acceptance test
+# offline tests (no network/keys needed):
+python tests/test_acceptance.py && python tests/test_scoring.py \
+  && python tests/test_adapters.py && python tests/test_notify.py
 ```
+
+### Automation (cloud)
+`.github/workflows/pipeline.yml` runs ingest → score → notify every ~2h and commits the
+updated `data/flats.db` back to the repo (durable state). `digest.yml` sends a summary at
+08:00 / 18:00 Prague. Both need the repo secrets `MAPY_API_KEY`, `GOOGLE_MAPS_API_KEY`,
+`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`. Trigger manually from the Actions tab to test.
 
 ## What it optimizes for (locked spec)
 
@@ -31,10 +44,11 @@ See [docs/RECON.md](docs/RECON.md) for the live, current access method of each s
 
 1. **Verification routine** ✅ — prove all dependencies are reachable. `verify.py`.
 2. **Sreality adapter + SQLite schema + dedup** ✅ — core loop end-to-end on one source.
-3. Geocode + routing + scoring.
-4. Bezrealitky + iDnes adapters.
-5. GitHub Pages Leaflet map + shortlist tracker.
-6. Telegram notifier (instant + digest) + inquiry-message drafter.
+3. **Geocode + routing + scoring** ✅ — Google transit commute, hard filters, 0–1 score.
+4. **Bezrealitky + iDnes adapters** ✅ — 3-source ingest, cross-source dedup, real all-in.
+5. GitHub Pages Leaflet map + shortlist tracker. ← only remaining step
+6. **Telegram notifier (instant + digest) + inquiry drafter** ✅ — plus the scheduled
+   GitHub Actions pipeline (ingest → score → notify → commit state) and a 2×/day digest.
 
 ## Step 1 — run the verification routine
 
