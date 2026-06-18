@@ -1,0 +1,9 @@
+# HTTP client for all portal adapters (chosen in step 1: stdlib urllib intermittently
+# gets connection-reset by iDnes; requests is reliable). Retry support comes from the
+# bundled urllib3.
+requests>=2.31
+
+# HTML parsing for the iDnes adapter (added in step 4). Sreality is parsed from its
+# embedded __NEXT_DATA__ JSON and Bezrealitky from GraphQL, so neither needs a parser.
+beautifulsoup4>=4.12
+lxml>=5.0

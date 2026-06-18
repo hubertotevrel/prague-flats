@@ -1,0 +1,28 @@
+name: verify
+
+# Step 1 gate: run this manually from the Actions tab after adding the repo secrets.
+# Its whole purpose is to prove the dependencies are reachable *from a GitHub runner*
+# (Azure datacenter IPs), which can differ from your Mac — see docs/RECON.md.
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run verification routine
+        env:
+          MAPY_API_KEY: ${{ secrets.MAPY_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python verify.py

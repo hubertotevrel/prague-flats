@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+*.log
+.DS_Store
+
+# NOTE: the production state DB (data/flats.db, added in step 2) is intentionally
+# committed — the "git scraping" design uses the repo as durable state. Do not ignore it.
