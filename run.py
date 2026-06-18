@@ -212,6 +212,28 @@ def cmd_digest(args):
     conn.close()
 
 
+def cmd_map(args):
+    from pragueflats import mapgen
+    conn = db.connect()
+    db.init(conn)
+    html, n = mapgen.build_html(conn)
+    out = config.ROOT / "docs" / "index.html"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(html, encoding="utf-8")
+    print(f"Map written to {out} ({n} flats plotted).")
+    conn.close()
+
+
+def cmd_status(args):
+    from pragueflats.ingest import set_status
+    conn = db.connect()
+    db.init(conn)
+    set_status(conn, args.id, args.state, note=args.note)
+    conn.commit()
+    print(f"listing {args.id} -> {args.state}")
+    conn.close()
+
+
 def main():
     p = argparse.ArgumentParser(description="Prague flat-hunt pipeline")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -235,6 +257,15 @@ def main():
 
     pd = sub.add_parser("digest", help="Telegram: twice-daily digest of top matches")
     pd.set_defaults(func=cmd_digest)
+
+    pm = sub.add_parser("map", help="generate the Leaflet dashboard (docs/index.html)")
+    pm.set_defaults(func=cmd_map)
+
+    pst = sub.add_parser("status", help="set a flat's lifecycle status (affects alerts)")
+    pst.add_argument("id", type=int)
+    pst.add_argument("state", choices=db.VALID_STATUSES)
+    pst.add_argument("--note", default=None)
+    pst.set_defaults(func=cmd_status)
 
     args = p.parse_args()
     args.func(args)

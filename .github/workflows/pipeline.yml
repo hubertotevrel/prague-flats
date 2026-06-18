@@ -30,7 +30,7 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: ingest -> score -> notify
+      - name: ingest -> score -> notify -> map
         env:
           MAPY_API_KEY: ${{ secrets.MAPY_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
@@ -40,12 +40,13 @@ jobs:
           python run.py ingest --pages 6
           python run.py score
           python run.py notify
+          python run.py map
 
       - name: commit state
         run: |
           git config user.name "flat-hunt-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -f data/flats.db
+          git add -f data/flats.db docs/index.html
           git commit -m "state: $(date -u +%Y-%m-%dT%H:%MZ)" || { echo "no state change"; exit 0; }
           git pull --rebase --autostash
           git push
