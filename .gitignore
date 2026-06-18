@@ -6,5 +6,8 @@ venv/
 *.log
 .DS_Store
 
-# NOTE: the production state DB (data/flats.db, added in step 2) is intentionally
-# committed — the "git scraping" design uses the repo as durable state. Do not ignore it.
+# Local dev database is ignored to avoid committing a binary that conflicts on every
+# run. The "git scraping" design (repo as durable state) is real, but the scheduled
+# GitHub Action will be the *sole* writer that commits the production DB (step 6, via
+# `git add -f`). Local runs stay out of version control.
+data/*.db

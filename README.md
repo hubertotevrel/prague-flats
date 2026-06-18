@@ -6,7 +6,14 @@ sends a Telegram message for top matches (plus a morning/evening digest). A Leaf
 of the shortlist is published to GitHub Pages. State lives in a SQLite DB committed back
 to the repo ("git scraping").
 
-**Status:** Step 1 (verification routine) — built. Steps 2–6 pending.
+**Status:** Steps 1–2 built (verification + Sreality ingest engine). Steps 3–6 pending.
+
+Run the pipeline:
+```bash
+python run.py ingest          # crawl Sreality, store new/changed listings
+python run.py stats           # what's in the database
+python tests/test_acceptance.py   # idempotency + price-change acceptance test
+```
 
 ## What it optimizes for (locked spec)
 
@@ -23,7 +30,7 @@ See [docs/RECON.md](docs/RECON.md) for the live, current access method of each s
 ## Build order
 
 1. **Verification routine** ✅ — prove all dependencies are reachable. `verify.py`.
-2. Sreality adapter + SQLite schema + dedup (core loop end-to-end on one source).
+2. **Sreality adapter + SQLite schema + dedup** ✅ — core loop end-to-end on one source.
 3. Geocode + routing + scoring.
 4. Bezrealitky + iDnes adapters.
 5. GitHub Pages Leaflet map + shortlist tracker.
