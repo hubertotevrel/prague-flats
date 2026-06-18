@@ -30,3 +30,8 @@ SREALITY_MAX_PAGES = 25
 
 # Score above which a flat is "notify-worthy" (instant alert in step 6). Tunable.
 NOTIFY_THRESHOLD = 0.75
+
+# Quiet hours (Prague local): no instant pings when hour >= START or hour < END.
+# A flat found during quiet hours isn't dropped — it pings at the next waking run.
+QUIET_START_HOUR = 19   # 19:00 (7pm)
+QUIET_END_HOUR = 8      # 08:00 (8am)

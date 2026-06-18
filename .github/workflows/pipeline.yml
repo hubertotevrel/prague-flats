@@ -1,11 +1,13 @@
 name: pipeline
 
 # The hands-off loop: crawl all sources, score, send instant alerts, and commit the
-# updated SQLite back to the repo (the "git scraping" state). Runs every 2h across the
-# active window (~06:00–22:00 Prague = 04:00–20:00 UTC) and on demand.
+# updated SQLite back to the repo (the "git scraping" state). Every 2h during waking
+# hours (~08:00–18:00 Prague = 06:00–16:00 UTC in summer); the 08:00 run flushes anything
+# posted overnight. notify also self-guards quiet hours (19:00–08:00), so a stray run
+# never pings at night regardless of schedule/DST.
 on:
   schedule:
-    - cron: "0 4-20/2 * * *"
+    - cron: "0 6-16/2 * * *"
   workflow_dispatch:
 
 permissions:

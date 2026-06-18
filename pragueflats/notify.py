@@ -12,12 +12,25 @@ in (a `send(text) -> bool` callable) so the logic is testable without the networ
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from . import config
+
+_PRAGUE = ZoneInfo("Europe/Prague")
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def in_quiet_hours(now: datetime | None = None) -> bool:
+    """True when instant pings should be held (config quiet window, Prague local time)."""
+    if now is None:
+        now = datetime.now(_PRAGUE)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=_PRAGUE)
+    hour = now.astimezone(_PRAGUE).hour
+    return hour >= config.QUIET_START_HOUR or hour < config.QUIET_END_HOUR
 
 
 def inquiry_draft(disposition: str | None, street: str | None) -> str:
@@ -52,8 +65,13 @@ def _candidates(conn, extra=""):
             ORDER BY l.score DESC""").fetchall()
 
 
-def run_instant(conn, *, send, threshold: float | None = None, cap: int = 10) -> int:
-    """Ping new high-score flats. Returns how many flats were covered."""
+def run_instant(conn, *, send, threshold: float | None = None, cap: int = 10,
+                now: datetime | None = None) -> int:
+    """Ping new high-score flats. Returns how many flats were covered. During quiet hours
+    nothing is sent and nothing is marked, so the matches simply ping at the next
+    waking-hours run."""
+    if in_quiet_hours(now):
+        return 0
     threshold = config.NOTIFY_THRESHOLD if threshold is None else threshold
     pending = _candidates(conn, f"AND l.score >= {threshold} AND l.notified_at IS NULL")
     if not pending:

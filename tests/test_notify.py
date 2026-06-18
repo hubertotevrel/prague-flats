@@ -5,9 +5,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from datetime import datetime  # noqa: E402
+
 from pragueflats import db, notify  # noqa: E402
 
 T = "2026-06-18T08:00:00+00:00"
+ACTIVE = datetime(2026, 6, 18, 12, 0)   # noon Prague — pings allowed
+QUIET = datetime(2026, 6, 18, 22, 0)    # 22:00 Prague — quiet hours
 
 
 def seed(conn, lid, score, *, status="new"):
@@ -46,8 +50,17 @@ def main():
     seed(conn, 4, 0.90, status="dismissed")
     conn.commit()
 
-    # Cold start: one baseline message, covers the 2 eligible high-score flats.
-    n = notify.run_instant(conn, send=send)
+    # Quiet hours: nothing sends, nothing is marked (matches just wait for morning).
+    check("quiet hours boundary: 19:00 quiet, 08:00 active",
+          notify.in_quiet_hours(datetime(2026, 6, 18, 19))
+          and not notify.in_quiet_hours(datetime(2026, 6, 18, 8)))
+    check("quiet hours: run is suppressed, no messages",
+          notify.run_instant(conn, send=send, now=QUIET) == 0 and not msgs)
+    check("quiet hours: nothing marked notified",
+          conn.execute("SELECT COUNT(*) FROM listings WHERE notified_at IS NOT NULL").fetchone()[0] == 0)
+
+    # Cold start (waking hours): one baseline message, covers the 2 eligible high-score flats.
+    n = notify.run_instant(conn, send=send, now=ACTIVE)
     check("cold start: single baseline message", len(msgs) == 1)
     check("cold start: covers 2 (not low-score, not dismissed)", n == 2)
     check("cold start: dismissed flat left un-notified",
@@ -55,14 +68,14 @@ def main():
 
     # Idempotent: nothing new -> silence.
     msgs.clear()
-    n = notify.run_instant(conn, send=send)
+    n = notify.run_instant(conn, send=send, now=ACTIVE)
     check("re-run: 0 alerts, no messages", n == 0 and not msgs)
 
     # A new high-score flat appears -> exactly one ping with an inquiry draft.
     seed(conn, 5, 0.82)
     conn.commit()
     msgs.clear()
-    n = notify.run_instant(conn, send=send)
+    n = notify.run_instant(conn, send=send, now=ACTIVE)
     check("new flat: pinged once", n == 1 and len(msgs) == 1)
     check("alert carries Czech inquiry draft", "Dotaz" in msgs[0] and "Dobrý den" in msgs[0])
 
