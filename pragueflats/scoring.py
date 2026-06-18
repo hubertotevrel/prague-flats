@@ -66,8 +66,12 @@ def district_score(district: str | None) -> float:
 
 
 def score(minutes: int | None, ppm: float | None, district: str | None) -> tuple[float, dict]:
+    commute = commute_score(minutes)
+    if district in config.COMMUTE_RELAXED_DISTRICTS:
+        # You don't mind the trip from here, so distance can't drag the score down.
+        commute = max(commute, config.RELAXED_COMMUTE_FLOOR)
     parts = {
-        "commute": commute_score(minutes),
+        "commute": commute,
         "price_per_m2": price_per_m2_score(ppm),
         "district": district_score(district),
     }

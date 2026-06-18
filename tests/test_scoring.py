@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from pragueflats import scoring  # noqa: E402
+from pragueflats import config, scoring  # noqa: E402
 
 
 def check(label, cond):
@@ -56,6 +56,17 @@ def main():
     # a weak flat lands well below the 0.75 notify threshold
     weak, _ = scoring.score(50, 850.0, "Praha 9")
     check("score: weak flat < 0.75", weak < 0.75)
+
+    # Prague 7 is commute-relaxed: a far P7 flat keeps a floored commute score, while the
+    # same trip in another district is not floored.
+    _, bd_p7 = scoring.score(55, 550.0, "Praha 7")
+    _, bd_p5 = scoring.score(55, 550.0, "Praha 5")
+    check("far P7 commute floored to RELAXED_COMMUTE_FLOOR",
+          approx(bd_p7["commute"], config.RELAXED_COMMUTE_FLOOR))
+    check("far P5 commute NOT floored", approx(bd_p5["commute"], scoring.commute_score(55)))
+    p7_total, _ = scoring.score(55, 550.0, "Praha 7")
+    p5_total, _ = scoring.score(55, 550.0, "Praha 5")
+    check("same far flat ranks higher in P7 than P5", p7_total > p5_total)
 
     print("\nALL SCORING CHECKS PASSED")
 
