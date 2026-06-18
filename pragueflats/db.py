@@ -60,6 +60,14 @@ CREATE TABLE IF NOT EXISTS status_tracker (
     note       TEXT
 );
 
+-- Door-to-door transit time to work, keyed by ~100 m GPS bucket so nearby flats reuse
+-- one Google Routes call. minutes may be NULL (no route found) and is still cached.
+CREATE TABLE IF NOT EXISTS commute_cache (
+    geo_key     TEXT PRIMARY KEY,
+    minutes     INTEGER,
+    computed_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_sources_listing ON sources(listing_id);
 CREATE INDEX IF NOT EXISTS idx_price_history_src ON price_history(source_row_id);
 CREATE INDEX IF NOT EXISTS idx_status ON status_tracker(status);
@@ -78,6 +86,27 @@ def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
     return conn
 
 
+# Scoring columns added to `listings` in step 3. Kept as an idempotent migration so an
+# existing DB upgrades in place rather than needing a rebuild.
+_LISTING_SCORE_COLS = {
+    "all_in_czk": "INTEGER",
+    "all_in_estimated": "INTEGER",
+    "commute_min": "INTEGER",
+    "score": "REAL",
+    "score_json": "TEXT",
+    "passes_filters": "INTEGER",
+    "scored_at": "TEXT",
+}
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    have = {r["name"] for r in conn.execute("PRAGMA table_info(listings)")}
+    for name, typ in _LISTING_SCORE_COLS.items():
+        if name not in have:
+            conn.execute(f"ALTER TABLE listings ADD COLUMN {name} {typ}")
+
+
 def init(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    _migrate(conn)
     conn.commit()

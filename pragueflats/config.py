@@ -27,3 +27,6 @@ PREFERRED_DISTRICTS = {
 # pagination loops near ~100 pages on broad filters — so we take the newest slice and
 # stay polite. Raise if you want deeper history.
 SREALITY_MAX_PAGES = 25
+
+# Score above which a flat is "notify-worthy" (instant alert in step 6). Tunable.
+NOTIFY_THRESHOLD = 0.75
