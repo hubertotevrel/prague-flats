@@ -4,7 +4,8 @@ name: digest
 # UTC). Reads the state the pipeline committed; sends one Telegram message, no commit.
 on:
   schedule:
-    - cron: "0 6,16 * * *"
+    # :23 past, off the top of the hour for reliability. 08:23 / 18:23 Prague.
+    - cron: "23 6,16 * * *"
   workflow_dispatch:
 
 jobs:
