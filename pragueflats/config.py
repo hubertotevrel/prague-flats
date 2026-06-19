@@ -13,14 +13,10 @@ WORK_LAT, WORK_LON = 50.0744, 14.3906
 # Tunable default rent ceiling (all-in). Used by the hard filter in step 3.
 MAX_PRICE_ALLIN_CZK = 18_000
 
-# Soft district preference (bonus weights for scoring in step 3). Prague 7 preferred,
-# then the commute-friendly / better-value comparables.
+# District preference: ONLY Prague 7 carries a bonus. Every other district scores 0 here,
+# so the rest of Prague is ranked purely on commute + price/m² (evaluated equally).
 PREFERRED_DISTRICTS = {
     "Praha 7": 1.0,
-    "Praha 5": 0.7,
-    "Praha 4": 0.6,
-    "Praha 8": 0.6,
-    "Praha 3": 0.6,  # Žižkov
 }
 
 # Districts whose commute you're happy to accept — there, cost matters more than travel

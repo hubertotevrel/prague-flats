@@ -44,9 +44,10 @@ def main():
     check("ppm: 300 -> 1.0", approx(scoring.price_per_m2_score(300), 1.0))
     check("ppm: 600 -> 0.5", approx(scoring.price_per_m2_score(600), 0.5))
     check("ppm: 900 -> 0.0", approx(scoring.price_per_m2_score(900), 0.0))
-    check("district: Praha 7 -> 1.0", approx(scoring.district_score("Praha 7"), 1.0))
-    check("district: Praha 5 -> 0.7", approx(scoring.district_score("Praha 5"), 0.7))
-    check("district: Praha 9 (unlisted) -> 0.0", approx(scoring.district_score("Praha 9"), 0.0))
+    check("district: Praha 7 -> 1.0 (only district with a bonus)",
+          approx(scoring.district_score("Praha 7"), 1.0))
+    check("district: Praha 5 -> 0.0 (no preference)", approx(scoring.district_score("Praha 5"), 0.0))
+    check("district: Praha 9 -> 0.0", approx(scoring.district_score("Praha 9"), 0.0))
 
     # composite: 12-min commute, 16500/30 = 550 CZK/m², Praha 7
     total, bd = scoring.score(12, 550.0, "Praha 7")
