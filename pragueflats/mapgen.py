@@ -75,7 +75,7 @@ _TEMPLATE = r"""<!doctype html>
   *{box-sizing:border-box} html,body{margin:0;height:100%;font:14px/1.45 system-ui,sans-serif;color:#0f172a}
   #app{display:flex;height:100%}
   #side{width:360px;min-width:300px;display:flex;flex-direction:column;border-right:1px solid var(--line);background:#f8fafc}
-  #map{flex:1}
+  #map{flex:1;position:relative}
   header{padding:12px 14px;border-bottom:1px solid var(--line);background:#fff}
   header h1{margin:0 0 2px;font-size:16px} header .sub{color:var(--muted);font-size:12px}
   .controls{padding:8px 14px;border-bottom:1px solid var(--line);background:#fff;font-size:12px;color:var(--muted)}
@@ -94,8 +94,20 @@ _TEMPLATE = r"""<!doctype html>
   .pop button{font:12px system-ui;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer}
   .pop button:hover{background:#f1f5f9}
   .badge{font-size:11px;padding:1px 6px;border-radius:10px;background:#eef2ff;color:#3730a3}
-  .legend{position:absolute;z-index:1000;bottom:14px;right:14px;background:#fff;padding:8px 10px;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.2);font-size:12px}
+  .legend{position:absolute;z-index:1100;bottom:14px;right:14px;background:#fff;padding:8px 10px;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.2);font-size:12px}
   .legend span{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+  /* Floating toggle to expand the map / show the list — phone only */
+  #viewToggle{position:fixed;z-index:1100;top:12px;right:12px;display:none;background:#fff;
+    border:1px solid var(--line);border-radius:9px;padding:9px 13px;font:600 13px system-ui;
+    cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.25)}
+  @media (max-width:760px){
+    #app{flex-direction:column}
+    #map{height:48vh;flex:none;order:-1}              /* map on top, clearly visible */
+    #side{width:100%;min-width:0;flex:1}              /* list below, scrolls */
+    #viewToggle{display:block}
+    body.map-full #side{display:none}                 /* "Expand map" hides the list */
+    body.map-full #map{height:100vh;height:100dvh}
+  }
 </style></head>
 <body><div id="app">
   <div id="side">
@@ -107,13 +119,15 @@ _TEMPLATE = r"""<!doctype html>
     </div>
     <div id="list"></div>
   </div>
-  <div id="map"></div>
-  <div class="legend">
-    <div><span style="background:#16a34a"></span>≥ __THRESHOLD__ (top)</div>
-    <div><span style="background:#f59e0b"></span>0.60–__THRESHOLD__</div>
-    <div><span style="background:#9ca3af"></span>below</div>
-    <div><span style="background:#2563eb"></span>your work</div>
+  <div id="map">
+    <div class="legend">
+      <div><span style="background:#16a34a"></span>≥ __THRESHOLD__ (top)</div>
+      <div><span style="background:#f59e0b"></span>0.60–__THRESHOLD__</div>
+      <div><span style="background:#9ca3af"></span>below</div>
+      <div><span style="background:#2563eb"></span>your work</div>
+    </div>
   </div>
+  <button id="viewToggle">⤢ Map</button>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -197,5 +211,14 @@ function render(){
   }));
 render();
 if(FLATS.length){ const b=L.latLngBounds(FLATS.map(f=>[f.lat,f.lon])); b.extend([WORK.lat,WORK.lon]); map.fitBounds(b.pad(0.1)); }
+
+// Phone view toggle: expand the map full-screen / show the list. invalidateSize is
+// required whenever the map container resizes, else Leaflet renders it grey or clipped.
+var vt = document.getElementById('viewToggle');
+function syncToggle(){ vt.textContent = document.body.classList.contains('map-full') ? '☰ List' : '⤢ Map'; }
+vt.addEventListener('click', ()=>{ document.body.classList.toggle('map-full'); syncToggle();
+  setTimeout(()=>map.invalidateSize(), 130); });
+syncToggle();
+setTimeout(()=>map.invalidateSize(), 200);
 </script></body></html>
 """
