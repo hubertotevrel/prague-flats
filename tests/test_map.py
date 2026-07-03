@@ -5,9 +5,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from datetime import datetime  # noqa: E402
+
 from pragueflats import db, mapgen  # noqa: E402
 
 T = "2026-06-18T08:00:00+00:00"
+NOW = datetime(2026, 6, 18, 12, 0)   # fake clock so the fixtures count as fresh
 
 
 def check(label, cond):
@@ -34,11 +37,17 @@ def main():
     # a listing without coordinates must be skipped (can't be plotted)
     conn.execute(
         """INSERT INTO listings (id, dedup_key, disposition, district, score, passes_filters,
-               first_seen_at, last_seen_at) VALUES (2,'k2','1+kk','Praha 7',0.9,1,?,?)""", (T, T))
+               first_seen_at, last_seen_at) VALUES (2,'k2','2+1','Praha 7',0.9,1,?,?)""", (T, T))
+    # a stale listing (not re-seen for > STALE_DAYS) must be skipped too
+    conn.execute(
+        """INSERT INTO listings (id, dedup_key, disposition, district, score, passes_filters,
+               first_seen_at, last_seen_at, latitude, longitude)
+           VALUES (3,'k3','3+kk','Praha 6',0.95,1,?,'2026-06-10T08:00:00+00:00',50.09,14.39)""",
+        (T,))
     conn.commit()
 
-    html, n = mapgen.build_html(conn)
-    check("only the geocoded flat is plotted (1, not 2)", n == 1)
+    html, n = mapgen.build_html(conn, now=NOW)
+    check("only the fresh geocoded flat is plotted (not the coord-less or stale one)", n == 1)
     check("no template placeholders remain", "__FLATS__" not in html and "__WORK__" not in html)
     check("listing url embedded", "http://example/flat1" in html)
     check("work coords embedded", '"label"' in html and str(50.0744)[:6] in html)

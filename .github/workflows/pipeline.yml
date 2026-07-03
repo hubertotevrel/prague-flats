@@ -1,15 +1,16 @@
 name: pipeline
 
 # The hands-off loop: crawl all sources, score, send instant alerts, and commit the
-# updated SQLite back to the repo (the "git scraping" state). Every 2h during waking
-# hours (~08:00–18:00 Prague = 06:00–16:00 UTC in summer); the 08:00 run flushes anything
-# posted overnight. notify also self-guards quiet hours (19:00–08:00), so a stray run
-# never pings at night regardless of schedule/DST.
+# updated SQLite back to the repo (the "git scraping" state). Scheduled hourly across
+# the waking window because GitHub throttles scheduled workflows heavily (observed:
+# only 2–3 of 6 daily crons actually ran, often hours late) — an hourly schedule
+# yields roughly the intended every-2h cadence in practice. notify self-guards quiet
+# hours (21:00–08:00 Prague), so a late-night run never pings regardless of DST.
 on:
   schedule:
     # :17 past the hour, not :00 — GitHub drops cron jobs scheduled at the top of the
-    # hour under peak load. Every 2h across the waking window (~08:00–18:00 Prague).
-    - cron: "17 6-16/2 * * *"
+    # hour under peak load. Hourly, ~07:00–21:00 Prague (05:00–19:00 UTC in summer).
+    - cron: "17 5-19 * * *"
   workflow_dispatch:
 
 permissions:
@@ -39,7 +40,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          python run.py ingest --pages 6
+          python run.py ingest --pages 12
           python run.py score
           python run.py notify
           python run.py map

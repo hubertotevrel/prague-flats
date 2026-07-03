@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 
 from . import config
-from .notify import inquiry_draft
+from .notify import fresh_cutoff, inquiry_draft
 
 _QUERY = """
 SELECT l.id, l.score, l.disposition, l.district, l.city_part, l.street,
@@ -23,14 +23,15 @@ SELECT l.id, l.score, l.disposition, l.district, l.city_part, l.street,
 FROM listings l
 LEFT JOIN status_tracker st ON st.listing_id = l.id
 WHERE l.passes_filters = 1 AND l.score IS NOT NULL
+  AND l.last_seen_at >= ?
   AND l.latitude IS NOT NULL AND l.longitude IS NOT NULL
 ORDER BY l.score DESC
 """
 
 
-def _flats(conn) -> list[dict]:
+def _flats(conn, now=None) -> list[dict]:
     out = []
-    for r in conn.execute(_QUERY):
+    for r in conn.execute(_QUERY, (fresh_cutoff(now),)):
         try:
             imgs = json.loads(r["images_json"]) if r["images_json"] else []
         except Exception:
@@ -55,8 +56,8 @@ def _flats(conn) -> list[dict]:
     return out
 
 
-def build_html(conn) -> tuple[str, int]:
-    flats = _flats(conn)
+def build_html(conn, now=None) -> tuple[str, int]:
+    flats = _flats(conn, now)
     html = (_TEMPLATE
             .replace("__FLATS__", json.dumps(flats, ensure_ascii=False))
             .replace("__WORK__", json.dumps({"lat": config.WORK_LAT, "lon": config.WORK_LON,

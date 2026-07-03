@@ -40,6 +40,17 @@ def in_quiet_hours(now: datetime | None = None) -> bool:
     return hour >= config.QUIET_START_HOUR or hour < config.QUIET_END_HOUR
 
 
+def fresh_cutoff(now: datetime | None = None) -> str:
+    """ISO timestamp STALE_DAYS ago — listings last seen before this are treated as gone
+    (rented/withdrawn) and kept out of alerts, digests, top lists and the map."""
+    if now is None:
+        now = datetime.now(timezone.utc)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=_PRAGUE)
+    cut = now.astimezone(timezone.utc) - timedelta(days=config.STALE_DAYS)
+    return cut.replace(microsecond=0).isoformat()
+
+
 def inquiry_draft(disposition: str | None, street: str | None) -> str:
     where = f" na ulici {street}" if street else ""
     disp = f" {disposition}" if disposition else ""
@@ -57,8 +68,9 @@ def _fmt_flat(row, rank: int | None = None) -> str:
             f"{row['address'] or ''}\n{row['url']}")
 
 
-def _candidates(conn, extra=""):
-    """Filter-passing, scored, non-dismissed flats with their cheapest source URL."""
+def _candidates(conn, extra="", now: datetime | None = None):
+    """Filter-passing, scored, non-dismissed, still-listed flats with their cheapest
+    source URL. Flats not re-seen within STALE_DAYS are treated as gone."""
     return conn.execute(
         f"""SELECT l.id, l.score, l.disposition, l.district, l.all_in_czk,
                    l.all_in_estimated, l.commute_min, l.address, l.street,
@@ -68,8 +80,8 @@ def _candidates(conn, extra=""):
             FROM listings l
             LEFT JOIN status_tracker st ON st.listing_id = l.id
             WHERE l.passes_filters = 1 AND l.score IS NOT NULL
-              AND COALESCE(st.status,'new') != 'dismissed' {extra}
-            ORDER BY l.score DESC""").fetchall()
+              AND l.last_seen_at >= ? AND COALESCE(st.status,'new') != 'dismissed' {extra}
+            ORDER BY l.score DESC""", (fresh_cutoff(now),)).fetchall()
 
 
 def run_instant(conn, *, send, threshold: float | None = None, cap: int = 10,
@@ -80,27 +92,26 @@ def run_instant(conn, *, send, threshold: float | None = None, cap: int = 10,
     if in_quiet_hours(now):
         return 0
     threshold = config.NOTIFY_THRESHOLD if threshold is None else threshold
-    pending = _candidates(conn, f"AND l.score >= {threshold} AND l.notified_at IS NULL")
+    pending = _candidates(conn, f"AND l.score >= {threshold} AND l.notified_at IS NULL", now)
     if not pending:
         return 0
 
     ever = conn.execute(
         "SELECT COUNT(*) FROM listings WHERE notified_at IS NOT NULL").fetchone()[0]
-    now = _now_iso()
+    stamp = _now_iso()
 
     if ever == 0:
-        # First run: one baseline message, then mark all current matches notified so they
-        # don't flood later. From now on only genuinely new matches ping.
+        # First run (or fresh spec baseline): one summary message, then mark the current
+        # matches notified so they don't flood later. Only genuinely new matches ping.
         lines = ["📋 Prague flat-hunt is live.",
                  f"{len(pending)} flats currently match your filters at score ≥ {threshold}. "
                  f"Top picks:"]
         lines += [_fmt_flat(r, i) for i, r in enumerate(pending[:5], 1)]
         lines.append("You'll get an instant ping whenever a new top flat appears.")
-        send("\n\n".join(lines), reply_markup=_map_markup())
-        conn.execute(
-            """UPDATE listings SET notified_at = ? WHERE score >= ? AND notified_at IS NULL
-               AND id NOT IN (SELECT listing_id FROM status_tracker WHERE status = 'dismissed')""",
-            (now, threshold))
+        if not send("\n\n".join(lines), reply_markup=_map_markup()):
+            return 0        # send failed -> stay unmarked, retry next run
+        conn.executemany("UPDATE listings SET notified_at = ? WHERE id = ?",
+                         [(stamp, r["id"]) for r in pending])
         conn.commit()
         return len(pending)
 
@@ -108,19 +119,19 @@ def run_instant(conn, *, send, threshold: float | None = None, cap: int = 10,
     for r in pending[:cap]:
         text = ("🏠 New match for you\n" + _fmt_flat(r) +
                 "\n\nDotaz k odeslání: " + inquiry_draft(r["disposition"], r["street"]))
-        if send(text):
+        if send(text):     # only mark on a successful send, so a lost ping retries
             sent += 1
-        conn.execute("UPDATE listings SET notified_at = ? WHERE id = ?", (now, r["id"]))
+            conn.execute("UPDATE listings SET notified_at = ? WHERE id = ?", (stamp, r["id"]))
     if len(pending) > cap:
-        send(f"…and {len(pending) - cap} more new matches — see the digest.")
-        conn.executemany("UPDATE listings SET notified_at = ? WHERE id = ?",
-                         [(now, r["id"]) for r in pending[cap:]])
+        if send(f"…and {len(pending) - cap} more new matches — see the digest."):
+            conn.executemany("UPDATE listings SET notified_at = ? WHERE id = ?",
+                             [(stamp, r["id"]) for r in pending[cap:]])
     conn.commit()
     return sent
 
 
-def run_digest(conn, *, send, top_n: int = 8) -> bool:
-    rows = _candidates(conn)
+def run_digest(conn, *, send, top_n: int = 8, now: datetime | None = None) -> bool:
+    rows = _candidates(conn, now=now)
     above = [r for r in rows if r["score"] >= config.NOTIFY_THRESHOLD]
     day_ago = (datetime.now(timezone.utc) - timedelta(hours=24)).replace(microsecond=0).isoformat()
     new_24h = sum(1 for r in rows if (r["first_seen_at"] or "") >= day_ago)

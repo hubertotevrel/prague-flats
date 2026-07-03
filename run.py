@@ -100,8 +100,8 @@ def cmd_score(args):
     # One candidate per canonical flat, from its cheapest active source by all-in cost
     # (base + real charges when the source provides them).
     rows = conn.execute(
-        """SELECT l.id, l.disposition, l.area_m2, l.district, l.latitude, l.longitude,
-                  l.address, s.price_czk AS base_price, s.charges_czk AS charges
+        """SELECT l.id, l.disposition, l.area_m2, l.district, l.city_part, l.latitude,
+                  l.longitude, l.address, s.price_czk AS base_price, s.charges_czk AS charges
            FROM listings l
            JOIN sources s ON s.id = (
                SELECT s2.id FROM sources s2
@@ -130,12 +130,15 @@ def cmd_score(args):
         minutes = commute.transit_minutes(conn, lat, lon, api_key=api_key,
                                           session=session, departure=departure)
         ppm = base / area if base and area else None
-        sc, breakdown = scoring.score(minutes, ppm, r["district"])
+        sc, breakdown = scoring.score(minutes, ppm, r["district"], r["city_part"])
         conn.execute(
             "UPDATE listings SET passes_filters=1, all_in_czk=?, all_in_estimated=?, "
             "commute_min=?, score=?, score_json=?, scored_at=? WHERE id=?",
             (all_in, int(est), minutes, sc, json.dumps(breakdown), now, r["id"]))
         n_scored += 1
+    if db.apply_spec_rebaseline(conn):
+        print(f"Search spec changed to '{config.SPEC_VERSION}' — alert history reset; "
+              f"the next notify run sends a fresh baseline.")
     conn.commit()
     api_calls = conn.execute("SELECT COUNT(*) FROM commute_cache").fetchone()[0] - cache_before
     notify = conn.execute(
@@ -157,8 +160,8 @@ def cmd_top(args):
                    AND s.is_active = 1) AS base_price
            FROM listings l
            LEFT JOIN status_tracker st ON st.listing_id = l.id
-           WHERE l.passes_filters = 1 AND l.score IS NOT NULL
-           ORDER BY l.score DESC LIMIT ?""", (args.n,)).fetchall()
+           WHERE l.passes_filters = 1 AND l.score IS NOT NULL AND l.last_seen_at >= ?
+           ORDER BY l.score DESC LIMIT ?""", (notify.fresh_cutoff(), args.n)).fetchall()
     if not rows:
         print("No scored listings yet. Run:  python run.py score")
         return

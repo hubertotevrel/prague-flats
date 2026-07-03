@@ -77,6 +77,12 @@ CREATE TABLE IF NOT EXISTS geocode_cache (
     computed_at TEXT NOT NULL
 );
 
+-- Pipeline bookkeeping (e.g. which spec version the alert baseline belongs to).
+CREATE TABLE IF NOT EXISTS meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_sources_listing ON sources(listing_id);
 CREATE INDEX IF NOT EXISTS idx_price_history_src ON price_history(source_row_id);
 CREATE INDEX IF NOT EXISTS idx_status ON status_tracker(status);
@@ -124,3 +130,25 @@ def init(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
     _migrate(conn)
     conn.commit()
+
+
+def get_meta(conn: sqlite3.Connection, key: str) -> str | None:
+    row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+    return row["value"] if row else None
+
+
+def set_meta(conn: sqlite3.Connection, key: str, value: str) -> None:
+    conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?,?)", (key, value))
+
+
+def apply_spec_rebaseline(conn: sqlite3.Connection) -> bool:
+    """When the search spec changes (config.SPEC_VERSION bump), clear the alert history
+    once so the notifier re-baselines: one fresh summary under the new rules instead of
+    a flood of 'new match' pings, and previously-alerted flats can re-qualify.
+    Idempotent — does nothing while the stored version matches."""
+    from . import config
+    if get_meta(conn, "spec_version") == config.SPEC_VERSION:
+        return False
+    conn.execute("UPDATE listings SET notified_at = NULL")
+    set_meta(conn, "spec_version", config.SPEC_VERSION)
+    return True
