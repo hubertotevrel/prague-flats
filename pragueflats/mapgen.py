@@ -13,7 +13,7 @@ from .notify import fresh_cutoff, inquiry_draft
 
 _QUERY = """
 SELECT l.id, l.score, l.disposition, l.district, l.city_part, l.street,
-       l.all_in_czk, l.all_in_estimated, l.commute_min, l.address,
+       l.all_in_czk, l.all_in_estimated, l.commute_min, l.commute2_min, l.address,
        l.latitude, l.longitude, COALESCE(st.status,'new') AS status,
        (SELECT url FROM sources s WHERE s.listing_id = l.id AND s.is_active = 1
         ORDER BY (s.price_czk + COALESCE(s.charges_czk,0)) LIMIT 1) AS url,
@@ -45,6 +45,7 @@ def _flats(conn, now=None) -> list[dict]:
             "allIn": r["all_in_czk"],
             "est": bool(r["all_in_estimated"]),
             "commute": r["commute_min"],
+            "commute2": r["commute2_min"],
             "address": r["address"],
             "lat": r["latitude"],
             "lon": r["longitude"],
@@ -62,6 +63,8 @@ def build_html(conn, now=None) -> tuple[str, int]:
             .replace("__FLATS__", json.dumps(flats, ensure_ascii=False))
             .replace("__WORK__", json.dumps({"lat": config.WORK_LAT, "lon": config.WORK_LON,
                                              "label": config.WORK_ADDRESS}))
+            .replace("__WORK2__", json.dumps({"lat": config.WORK2_LAT, "lon": config.WORK2_LON,
+                                              "label": config.WORK2_ADDRESS}))
             .replace("__THRESHOLD__", str(config.NOTIFY_THRESHOLD)))
     return html, len(flats)
 
@@ -125,14 +128,15 @@ _TEMPLATE = r"""<!doctype html>
       <div><span style="background:#16a34a"></span>≥ __THRESHOLD__ (top)</div>
       <div><span style="background:#f59e0b"></span>0.60–__THRESHOLD__</div>
       <div><span style="background:#9ca3af"></span>below</div>
-      <div><span style="background:#2563eb"></span>your work</div>
+      <div><span style="background:#2563eb"></span>work — you</div>
+      <div><span style="background:#7c3aed"></span>work — friend</div>
     </div>
   </div>
   <button id="viewToggle">⤢ Map</button>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const FLATS = __FLATS__, WORK = __WORK__, THRESHOLD = __THRESHOLD__;
+const FLATS = __FLATS__, WORK = __WORK__, WORK2 = __WORK2__, THRESHOLD = __THRESHOLD__;
 const LS = {
   get(k){ try{return new Set(JSON.parse(localStorage.getItem(k)||'[]'))}catch(e){return new Set()} },
   set(k,s){ localStorage.setItem(k, JSON.stringify([...s])) }
@@ -142,12 +146,20 @@ let shortlist = LS.get('pf_shortlist'), hidden = LS.get('pf_hidden');
 const map = L.map('map').setView([50.075,14.44], 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
-L.marker([WORK.lat, WORK.lon], {title:'Work: '+WORK.label,
-  icon:L.divIcon({className:'',html:'<div style="background:#2563eb;color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 0 0 3px #fff">🏢</div>',iconSize:[26,26],iconAnchor:[13,13]})}
-).addTo(map).bindPopup('<b>Work</b><br>'+WORK.label);
+function workMarker(w, bg, who){
+  L.marker([w.lat, w.lon], {title:'Work ('+who+'): '+w.label,
+    icon:L.divIcon({className:'',html:'<div style="background:'+bg+';color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 0 0 3px #fff">🏢</div>',iconSize:[26,26],iconAnchor:[13,13]})}
+  ).addTo(map).bindPopup('<b>Work — '+who+'</b><br>'+w.label);
+}
+workMarker(WORK, '#2563eb', 'you');
+workMarker(WORK2, '#7c3aed', 'friend');
 
 function color(s){ return s>=THRESHOLD ? '#16a34a' : s>=0.60 ? '#f59e0b' : '#9ca3af'; }
 function money(f){ return f.allIn ? f.allIn.toLocaleString('cs-CZ')+(f.est?'~':'')+' Kč' : '—'; }
+function cm(f){ return f.commute!=null && f.commute2!=null ? f.commute+'/'+f.commute2+' min'
+  : f.commute!=null ? f.commute+' min' : f.commute2!=null ? f.commute2+' min (friend)' : '? min'; }
+function cmPop(f){ return f.commute!=null && f.commute2!=null ? f.commute+'/'+f.commute2+' min (you/friend)'
+  : f.commute!=null ? f.commute+' min (you)' : f.commute2!=null ? f.commute2+' min (friend)' : 'commute ?'; }
 function esc(t){ return (t||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 const markers = {};
@@ -164,7 +176,7 @@ function popupHtml(f){
     ${f.img?`<img src="${f.img.startsWith('//')?'https:'+f.img:f.img}" onerror="this.style.display='none'">`:''}
     <div class="row"><b>${f.score.toFixed(2)}</b> · ${esc(f.disp)} · ${esc(f.district||'')}
       ${f.status&&f.status!=='new'?`<span class="badge">${f.status}</span>`:''}</div>
-    <div class="row">${money(f)} all-in · ${f.commute!=null?f.commute+' min to work':'commute ?'}</div>
+    <div class="row">${money(f)} all-in · ${cmPop(f)}</div>
     <div class="row muted">${esc(f.address||'')}</div>
     <div class="row"><a href="${f.url}" target="_blank" rel="noopener">Open listing ↗</a></div>
     <div class="btns">
@@ -197,7 +209,7 @@ function render(){
     el.innerHTML=`<div class="dot" style="background:${color(f.score)}"></div>
       <div class="meta"><div class="t"><span class="sc">${f.score.toFixed(2)}</span> ·
         ${esc(f.disp)} · ${money(f)} ${shortlist.has(f.id)?' ★':''}</div>
-      <div class="d">${esc(f.district||'')} · ${f.commute!=null?f.commute+' min':'? min'} · ${esc(f.cityPart||f.address||'')}</div></div>`;
+      <div class="d">${esc(f.district||'')} · ${cm(f)} · ${esc(f.cityPart||f.address||'')}</div></div>`;
     el.onclick=()=>{ map.flyTo([f.lat,f.lon],15); markers[f.id].openPopup(); };
     list.appendChild(el);
   });
@@ -211,7 +223,7 @@ function render(){
     render();
   }));
 render();
-if(FLATS.length){ const b=L.latLngBounds(FLATS.map(f=>[f.lat,f.lon])); b.extend([WORK.lat,WORK.lon]); map.fitBounds(b.pad(0.1)); }
+if(FLATS.length){ const b=L.latLngBounds(FLATS.map(f=>[f.lat,f.lon])); b.extend([WORK.lat,WORK.lon]); b.extend([WORK2.lat,WORK2.lon]); map.fitBounds(b.pad(0.1)); }
 
 // Phone view toggle: expand the map full-screen / show the list. invalidateSize is
 // required whenever the map container resizes, else Leaflet renders it grey or clipped.

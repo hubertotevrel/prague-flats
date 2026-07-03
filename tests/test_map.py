@@ -25,9 +25,9 @@ def main():
     db.init(conn)
     conn.execute(
         """INSERT INTO listings (id, dedup_key, disposition, district, city_part, street,
-               area_m2, all_in_czk, all_in_estimated, commute_min, score, passes_filters,
-               first_seen_at, last_seen_at, address, latitude, longitude)
-           VALUES (1,'k1','2+1','Praha 5','Košíře','Plzeňská',42,17150,0,11,0.83,1,?,?,
+               area_m2, all_in_czk, all_in_estimated, commute_min, commute2_min, score,
+               passes_filters, first_seen_at, last_seen_at, address, latitude, longitude)
+           VALUES (1,'k1','2+1','Praha 5','Košíře','Plzeňská',42,17150,0,11,24,0.83,1,?,?,
                    'Plzeňská, Praha 5',50.07,14.36)""", (T, T))
     conn.execute(
         """INSERT INTO sources (listing_id, source, source_id, url, is_agency, price_czk,
@@ -48,9 +48,12 @@ def main():
 
     html, n = mapgen.build_html(conn, now=NOW)
     check("only the fresh geocoded flat is plotted (not the coord-less or stale one)", n == 1)
-    check("no template placeholders remain", "__FLATS__" not in html and "__WORK__" not in html)
+    check("no template placeholders remain",
+          "__FLATS__" not in html and "__WORK__" not in html and "__WORK2__" not in html)
     check("listing url embedded", "http://example/flat1" in html)
     check("work coords embedded", '"label"' in html and str(50.0744)[:6] in html)
+    check("friend work anchor embedded", str(50.0971)[:6] in html and "friend" in html)
+    check("both commutes in flat data", '"commute": 11' in html and '"commute2": 24' in html)
     check("leaflet + inquiry present", "leaflet" in html.lower() and "Dobrý den" in html)
 
     print("\nALL MAP CHECKS PASSED")

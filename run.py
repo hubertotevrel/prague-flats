@@ -129,12 +129,17 @@ def cmd_score(args):
                 n_geo += 1
         minutes = commute.transit_minutes(conn, lat, lon, api_key=api_key,
                                           session=session, departure=departure)
+        minutes2 = commute.transit_minutes(conn, lat, lon, api_key=api_key,
+                                           session=session, departure=departure,
+                                           dest_lat=config.WORK2_LAT,
+                                           dest_lon=config.WORK2_LON, dest_tag="w2")
         ppm = base / area if base and area else None
-        sc, breakdown = scoring.score(minutes, ppm, r["district"], r["city_part"])
+        sc, breakdown = scoring.score(minutes, ppm, r["district"], r["city_part"],
+                                      minutes2=minutes2)
         conn.execute(
             "UPDATE listings SET passes_filters=1, all_in_czk=?, all_in_estimated=?, "
-            "commute_min=?, score=?, score_json=?, scored_at=? WHERE id=?",
-            (all_in, int(est), minutes, sc, json.dumps(breakdown), now, r["id"]))
+            "commute_min=?, commute2_min=?, score=?, score_json=?, scored_at=? WHERE id=?",
+            (all_in, int(est), minutes, minutes2, sc, json.dumps(breakdown), now, r["id"]))
         n_scored += 1
     if db.apply_spec_rebaseline(conn):
         print(f"Search spec changed to '{config.SPEC_VERSION}' — alert history reset; "
@@ -167,7 +172,10 @@ def cmd_top(args):
         return
     print(f"{'score':>5}  {'commute':>7}  {'all-in':>8}  {'disp':<6} {'district':<9} address")
     for r in rows:
-        commute_s = f"{r['commute_min']}m" if r["commute_min"] is not None else "  ?"
+        m1, m2 = r["commute_min"], r["commute2_min"]
+        commute_s = (f"{m1}/{m2}m" if m1 is not None and m2 is not None
+                     else f"{m1 if m1 is not None else m2}m"
+                     if (m1 is not None or m2 is not None) else "  ?")
         allin = f"{r['all_in_czk']:,}{'~' if r['all_in_estimated'] else ''}" if r["all_in_czk"] else "?"
         print(f"{r['score']:>5.3f}  {commute_s:>7}  {allin:>8}  {r['disposition'] or '?':<6} "
               f"{(r['district'] or '?'):<9} {r['address'] or ''}")

@@ -107,6 +107,7 @@ _LISTING_SCORE_COLS = {
     "all_in_czk": "INTEGER",
     "all_in_estimated": "INTEGER",
     "commute_min": "INTEGER",
+    "commute2_min": "INTEGER",   # transit to the flatmate's work (spec v2.1)
     "score": "REAL",
     "score_json": "TEXT",
     "passes_filters": "INTEGER",

@@ -18,10 +18,10 @@ QUIET = datetime(2026, 6, 18, 22, 0)    # 22:00 Prague — quiet hours
 def seed(conn, lid, score, *, status="new", last_seen=T):
     conn.execute(
         """INSERT INTO listings (id, dedup_key, disposition, district, area_m2, all_in_czk,
-               all_in_estimated, commute_min, score, passes_filters, first_seen_at,
-               last_seen_at, address, street)
-           VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?,?)""",
-        (lid, f"k{lid}", "2+1", "Praha 7", 62, 30500, 0, 28, score, T, last_seen,
+               all_in_estimated, commute_min, commute2_min, score, passes_filters,
+               first_seen_at, last_seen_at, address, street)
+           VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?,?,?)""",
+        (lid, f"k{lid}", "2+1", "Praha 7", 62, 30500, 0, 28, 19, score, T, last_seen,
          f"Street {lid}", f"Street{lid}"))
     conn.execute(
         """INSERT INTO sources (listing_id, source, source_id, url, is_agency, price_czk,
@@ -84,6 +84,7 @@ def main():
     n = notify.run_instant(conn, send=send, now=ACTIVE)
     check("new flat: pinged once", n == 1 and len(msgs) == 1)
     check("alert carries Czech inquiry draft", "Dotaz" in msgs[0] and "Dobrý den" in msgs[0])
+    check("alert shows both commutes", "28/19 min (you/friend)" in msgs[0])
 
     # A failed Telegram send is not swallowed: the flat stays unmarked and retries.
     seed(conn, 6, 0.9)

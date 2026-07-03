@@ -3,7 +3,8 @@
 Hard filters decide in/out. Soft score ranks the survivors:
     score = 0.4 * commute + 0.3 * price_per_m² + 0.3 * area
 each term normalized to 0–1 against fixed (tunable) bounds, so a flat's score is stable
-across runs rather than drifting as the candidate set changes.
+across runs rather than drifting as the candidate set changes. The commute term is the
+AVERAGE transit time to the two work anchors (yours + flatmate's).
 
 The area term is 1.0 inside the preferred areas (Vinohrady as a neighbourhood, plus the
 Praha 6 / Praha 7 districts) and 0 elsewhere — a soft preference, not a filter. Within
@@ -61,10 +62,19 @@ def passes_hard_filters(disposition, base_price, all_in, estimated, *, ceiling=N
     return True
 
 
-def commute_score(minutes: int | None) -> float:
+def commute_score(minutes: float | None) -> float:
     if minutes is None:
         return 0.0
     return _clamp01(1 - minutes / COMMUTE_MAX_MIN)
+
+
+def commute_pair_score(minutes: int | None, minutes2: int | None) -> float:
+    """Average transit time to the two work anchors, scored. If only one anchor could be
+    routed, judge on that one alone; if neither, 0."""
+    known = [m for m in (minutes, minutes2) if m is not None]
+    if not known:
+        return 0.0
+    return commute_score(sum(known) / len(known))
 
 
 def price_per_m2_score(ppm: float | None) -> float:
@@ -84,13 +94,13 @@ def area_score(district: str | None, city_part: str | None) -> float:
 
 
 def score(minutes: int | None, ppm: float | None, district: str | None,
-          city_part: str | None = None) -> tuple[float, dict]:
+          city_part: str | None = None, minutes2: int | None = None) -> tuple[float, dict]:
     parts = {
-        "commute": commute_score(minutes),
+        "commute": commute_pair_score(minutes, minutes2),
         "price_per_m2": price_per_m2_score(ppm),
         "area": area_score(district, city_part),
     }
     total = sum(WEIGHTS[k] * v for k, v in parts.items())
     breakdown = {k: round(v, 3) for k, v in parts.items()}
-    breakdown.update(minutes=minutes, ppm=round(ppm, 1) if ppm else None)
+    breakdown.update(minutes=minutes, minutes2=minutes2, ppm=round(ppm, 1) if ppm else None)
     return round(total, 4), breakdown

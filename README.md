@@ -37,8 +37,9 @@ Prague. Both need the repo secrets `MAPY_API_KEY`, `GOOGLE_MAPS_API_KEY`,
 
 Hunting **with a flatmate**: one shared flat, rent split two ways.
 
-- Whole flats only · work anchor = **Zápova 1559/18, Smíchov (P5)** (flatmate's commute
-  not modelled yet — add as a second anchor if wanted)
+- Whole flats only · two work anchors: **Zápova 1559/18, Smíchov (P5)** (you) and
+  **Rohanské nábřeží 721/39, Karlín (P8)** (flatmate) — the commute term is the
+  **average** transit time to both; if one can't be routed, the known one counts alone
 - Ceiling **32k CZK all-in for the whole flat** (16k each, tunable) · layouts
   **2+1, 3+1, 3+kk** only (2+kk excluded — one person would sleep in the kitchen room)
 - Preferred areas (soft bonus, not a filter): **Vinohrady as a neighbourhood** (it spans

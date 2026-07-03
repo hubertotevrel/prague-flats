@@ -58,10 +58,21 @@ def inquiry_draft(disposition: str | None, street: str | None) -> str:
             f"Měl(a) bych zájem o prohlídku. Děkuji.")
 
 
+def _fmt_commute(row) -> str:
+    m1, m2 = row["commute_min"], row["commute2_min"]
+    if m1 is not None and m2 is not None:
+        return f"{m1}/{m2} min (you/friend)"
+    if m1 is not None:
+        return f"{m1} min to work"
+    if m2 is not None:
+        return f"{m2} min (friend)"
+    return "commute ?"
+
+
 def _fmt_flat(row, rank: int | None = None) -> str:
     est = "~" if row["all_in_estimated"] else ""
     allin = f"{row['all_in_czk']:,}{est} Kč all-in" if row["all_in_czk"] else "price ?"
-    commute = f"{row['commute_min']} min to work" if row["commute_min"] is not None else "commute ?"
+    commute = _fmt_commute(row)
     head = f"{rank}. " if rank else ""
     return (f"{head}{row['score']:.2f} · {row['disposition'] or '?'} · "
             f"{row['district'] or '?'} · {allin} · {commute}\n"
@@ -73,7 +84,7 @@ def _candidates(conn, extra="", now: datetime | None = None):
     source URL. Flats not re-seen within STALE_DAYS are treated as gone."""
     return conn.execute(
         f"""SELECT l.id, l.score, l.disposition, l.district, l.all_in_czk,
-                   l.all_in_estimated, l.commute_min, l.address, l.street,
+                   l.all_in_estimated, l.commute_min, l.commute2_min, l.address, l.street,
                    l.first_seen_at, l.notified_at, COALESCE(st.status,'new') AS status,
                    (SELECT url FROM sources s WHERE s.listing_id = l.id AND s.is_active = 1
                     ORDER BY (s.price_czk + COALESCE(s.charges_czk, 0)) LIMIT 1) AS url

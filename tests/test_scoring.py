@@ -71,10 +71,25 @@ def main():
     check("area: Praha 5 -> 0.0", approx(scoring.area_score("Praha 5", "Smíchov"), 0.0))
     check("area: unknown -> 0.0", approx(scoring.area_score(None, None), 0.0))
 
+    # two work anchors: commute term = average of both; one missing -> judge on the known
+    check("commute pair: avg of 12 and 36 = 24 min -> 0.6",
+          approx(scoring.commute_pair_score(12, 36), 0.6))
+    check("commute pair: friend's missing -> falls back to yours",
+          approx(scoring.commute_pair_score(30, None), scoring.commute_score(30)))
+    check("commute pair: yours missing -> falls back to friend's",
+          approx(scoring.commute_pair_score(None, 30), scoring.commute_score(30)))
+    check("commute pair: both missing -> 0.0", approx(scoring.commute_pair_score(None, None), 0.0))
+
     # composite: 12-min commute (0.8), 510 CZK/m² (0.5), Vinohrady (1.0)
     total, bd = scoring.score(12, 510.0, "Praha 2", "Vinohrady")
     check("score: weighted sum = 0.77", approx(total, 0.77, 1e-3))
     check("score: breakdown carries minutes+ppm", bd["minutes"] == 12 and bd["ppm"] == 510.0)
+
+    # composite with both anchors: avg(12, 36) = 24 min -> commute 0.6
+    total2, bd2 = scoring.score(12, 510.0, "Praha 2", "Vinohrady", minutes2=36)
+    check("score: two-anchor weighted sum = 0.69", approx(total2, 0.69, 1e-3))
+    check("score: breakdown carries both commutes",
+          bd2["minutes"] == 12 and bd2["minutes2"] == 36)
 
     # a weak flat lands well below the notify threshold
     weak, _ = scoring.score(50, 680.0, "Praha 9", "Prosek")

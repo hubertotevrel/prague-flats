@@ -2,8 +2,9 @@
 
 Spec v2 (July 2026): hunting WITH A FLATMATE — a shared 2+1 / 3+1 / 3+kk, rent split
 two ways, preferred areas Vinohrady (both its Praha 2 and Praha 3 parts), Praha 6 and
-Praha 7. Bump SPEC_VERSION whenever filters change meaningfully: it triggers a one-time
-alert re-baseline so the Telegram channel starts fresh under the new rules.
+Praha 7, commute scored to BOTH workplaces (average). Bump SPEC_VERSION whenever filters
+change meaningfully: it triggers a one-time alert re-baseline so the Telegram channel
+starts fresh under the new rules.
 """
 from pathlib import Path
 
@@ -11,13 +12,17 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 DB_PATH = DATA_DIR / "flats.db"
 
-SPEC_VERSION = "v2-flatshare"
+SPEC_VERSION = "v2.1-two-anchors"
 
 # Work location — Mapy.com geocode of Zápova 1559/18, Praha 5 (confirmed in step 1).
-# Commute is scored against this address only for now; the flatmate's commute can be
-# added later as a second anchor (average of the two).
 WORK_ADDRESS = "Zapova 1559/18, Praha 5"
 WORK_LAT, WORK_LON = 50.0744, 14.3906
+
+# Flatmate's work — Rohanské nábřeží 721/39, Karlín (Praha 8). The commute term of the
+# score is the average of the transit times to BOTH anchors; if one can't be routed,
+# the known one is used alone.
+WORK2_ADDRESS = "Rohanske nabrezi 721/39, Praha 8 - Karlin"
+WORK2_LAT, WORK2_LON = 50.0971, 14.4601
 
 # Total all-in ceiling for the WHOLE flat (both rents + charges), i.e. 16k each.
 MAX_PRICE_ALLIN_CZK = 32_000

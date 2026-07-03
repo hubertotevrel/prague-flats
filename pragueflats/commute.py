@@ -16,8 +16,12 @@ ROUTES_URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
 _PRAGUE = ZoneInfo("Europe/Prague")
 
 
-def _geo_key(lat: float, lon: float) -> str:
-    return f"{lat:.3f},{lon:.3f}"
+def _geo_key(lat: float, lon: float, dest_tag: str = "") -> str:
+    """Cache key per ~100 m origin bucket. The primary work anchor keeps the legacy
+    un-suffixed format (so existing cached lookups stay valid); other destinations get
+    a |tag suffix."""
+    key = f"{lat:.3f},{lon:.3f}"
+    return f"{key}|{dest_tag}" if dest_tag else key
 
 
 def next_morning_peak_utc(hour: int = 8) -> str:
@@ -32,11 +36,12 @@ def next_morning_peak_utc(hour: int = 8) -> str:
     return cand.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _google_transit_minutes(lat, lon, *, api_key, departure, session) -> int | None:
+def _google_transit_minutes(lat, lon, *, api_key, departure, session,
+                            dest_lat, dest_lon) -> int | None:
     body = {
         "origin": {"location": {"latLng": {"latitude": lat, "longitude": lon}}},
         "destination": {"location": {"latLng": {
-            "latitude": config.WORK_LAT, "longitude": config.WORK_LON}}},
+            "latitude": dest_lat, "longitude": dest_lon}}},
         "travelMode": "TRANSIT",
         "departureTime": departure,
     }
@@ -56,17 +61,21 @@ def _google_transit_minutes(lat, lon, *, api_key, departure, session) -> int | N
 
 
 def transit_minutes(conn, lat, lon, *, api_key, session=None, departure=None,
-                    now_iso=None) -> int | None:
-    """Cached transit minutes from (lat, lon) to work. Returns None if no route / no coords."""
+                    now_iso=None, dest_lat=None, dest_lon=None, dest_tag="") -> int | None:
+    """Cached transit minutes from (lat, lon) to a work anchor (default: WORK, i.e. the
+    primary/legacy destination). Returns None if no route / no coords."""
     if lat is None or lon is None:
         return None
-    key = _geo_key(lat, lon)
+    if dest_lat is None or dest_lon is None:
+        dest_lat, dest_lon = config.WORK_LAT, config.WORK_LON
+    key = _geo_key(lat, lon, dest_tag)
     row = conn.execute("SELECT minutes FROM commute_cache WHERE geo_key = ?", (key,)).fetchone()
     if row is not None:
         return row["minutes"]
     session = session or make_session()
     departure = departure or next_morning_peak_utc()
-    minutes = _google_transit_minutes(lat, lon, api_key=api_key, departure=departure, session=session)
+    minutes = _google_transit_minutes(lat, lon, api_key=api_key, departure=departure,
+                                      session=session, dest_lat=dest_lat, dest_lon=dest_lon)
     stamp = now_iso or datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     conn.execute("INSERT OR REPLACE INTO commute_cache (geo_key, minutes, computed_at) VALUES (?,?,?)",
                  (key, minutes, stamp))
