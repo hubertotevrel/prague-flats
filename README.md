@@ -6,8 +6,16 @@ Telegram message for top matches (plus a morning/evening digest). A Leaflet map 
 current matches is published to GitHub Pages. State lives in a SQLite DB committed back
 to the repo ("git scraping").
 
-**Status:** all six build steps live (3-source ingest, commute/scoring, Telegram alerts,
-map dashboard, cloud automation). Spec is at **v2 — flat-share** (see below).
+**Status: 🏁 SUNSET (2026-07-28) — flat found, hunt over.** All scheduled runs are
+disabled (schedule triggers removed from both workflows); no crawling, no API calls,
+no Telegram messages happen automatically. Everything can still be run manually
+(`workflow_dispatch` on GitHub, or the CLI below), and the final database and map stay
+in the repo as an archive. To revive the hunt: restore the cron lines noted in
+`.github/workflows/pipeline.yml` + `digest.yml` and adjust the spec in
+`pragueflats/config.py`.
+
+Built as: 3-source ingest, commute/scoring, Telegram alerts, map dashboard, cloud
+automation. Final spec was **v2.1 — flat-share** (see below).
 
 Run the pipeline:
 ```bash

@@ -1,11 +1,9 @@
 name: digest
 
-# Twice-daily summary of the current top matches (08:00 and 18:00 Prague = 06:00 / 16:00
-# UTC). Reads the state the pipeline committed; sends one Telegram message, no commit.
+# SUNSET (2026-07-28): flat found — no scheduled digests anymore. Manual runs still
+# possible from the Actions tab. Restore the cron to reactivate:
+#   was:  schedule: [cron: "23 6,16 * * *"]   # 08:23 / 18:23 Prague
 on:
-  schedule:
-    # :23 past, off the top of the hour for reliability. 08:23 / 18:23 Prague.
-    - cron: "23 6,16 * * *"
   workflow_dispatch:
 
 jobs:

@@ -1,16 +1,11 @@
 name: pipeline
 
-# The hands-off loop: crawl all sources, score, send instant alerts, and commit the
-# updated SQLite back to the repo (the "git scraping" state). Scheduled hourly across
-# the waking window because GitHub throttles scheduled workflows heavily (observed:
-# only 2–3 of 6 daily crons actually ran, often hours late) — an hourly schedule
-# yields roughly the intended every-2h cadence in practice. notify self-guards quiet
-# hours (21:00–08:00 Prague), so a late-night run never pings regardless of DST.
+# SUNSET (2026-07-28): flat found — the hunt is over. The schedule trigger has been
+# removed so no crawls, API calls or Telegram messages happen automatically anymore.
+# The pipeline can still be run manually from the Actions tab (workflow_dispatch) if
+# the hunt ever needs reviving; restore the cron below to fully reactivate it.
+#   was:  schedule: [cron: "17 5-19 * * *"]   # hourly, ~07:00–21:00 Prague
 on:
-  schedule:
-    # :17 past the hour, not :00 — GitHub drops cron jobs scheduled at the top of the
-    # hour under peak load. Hourly, ~07:00–21:00 Prague (05:00–19:00 UTC in summer).
-    - cron: "17 5-19 * * *"
   workflow_dispatch:
 
 permissions:
