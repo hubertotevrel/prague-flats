@@ -1,6 +1,6 @@
 # Brief: where should a personal flat-hunting tool go next?
 
-I built a small tool for my own flat hunt in Prague. I now want to apply to a Czech hackathon on housing for young people, and I want your opinion on how the tool could grow into something useful to many young people, not only me. Several agents are getting this same brief; I will compare the answers, so an honest, specific, opinionated answer is worth more to me than a balanced survey.
+I built a small tool for my own flat hunt in Prague. I now want to apply to a Czech hackathon on housing for young people, and I want your opinion on how the tool could grow into something useful to many young people, not only me. Several agents are getting this same brief and I will compare the answers. At this stage I am collecting ideas, so I want a wide spread of specific, honest ones from you rather than a single recommendation.
 
 If a line starting with `Lens:` appears at the very top of this message, answer from that perspective (the lenses are described at the end). If there is none, answer as a generalist.
 
@@ -43,18 +43,18 @@ It is about 1,700 lines of Python, a SQLite file, a free scheduler and a static 
 
 ## What I want from you
 
-Work out which parts of this tool carry over to the hackathon's task and which are artefacts of my own search, then tell me where you would take it. The hackathon wants orientation and understanding; my tool does search and speed. I do not know whether the right move is to stretch the tool toward the brief, to keep only one idea from it and build something different around that, or to treat it purely as proof that I can build things and arrive with an open mind. I want your view on that question most of all.
+Work out which parts of this tool carry over to the hackathon's task and which are artefacts of my own search, then give me a range of places it could go. The hackathon wants orientation and understanding; my tool does search and speed. I do not know whether the right move is to stretch the tool toward the brief, to keep only one idea from it and build something different around that, or to treat it purely as proof that I can build things and arrive with an open mind. Your ideas should cover all three of those routes, and your ranking should tell me which route you think is right.
 
-Please answer in English, in under 900 words, using these headings so I can compare answers:
+Please answer in English, in under 1,400 words, using these headings so I can compare answers:
 
 1. **What is worth keeping** — the one or two ideas in the existing tool that would matter to a young person who is not me, and why. Say plainly what should be dropped.
-2. **Three directions** — three different ways to develop it, not three sizes of the same idea. For each: who it is for, which decision it helps them make, what data it needs and where that data would come from legitimately, what it reuses from the existing tool, how it sits with the hackathon's conditions, and what a team of five could show after three days.
-3. **Your pick** — which one you would pursue and why, and what evidence would change your mind.
-4. **The hardest objection** — the strongest criticism a housing researcher or juror would make of your pick, and whether you think it can be answered.
-5. **For the application** — the angle you would take in the motivation text and the first ten seconds of the video. An angle, not finished copy.
+2. **Ideas** — at least six, and more if you have them. They should differ in kind, not be six sizes of the same idea. Spread them across the range: some that stretch the existing tool, some that keep a single idea from it and build something different around that, and at least two that owe nothing to the tool and simply answer the hackathon's task well. Include at least one you think is risky or unusual. For each, in a short paragraph: a name, who it is for, which decision it helps them make, what data it needs and where that data would come from legitimately, and what a team of five could show after three days.
+3. **How they compare** — rank your ideas from strongest to weakest for this hackathon, with one line of reasoning each. Then say which ideas would combine well, since the jury may pick a combination of elements rather than one concept.
+4. **Hardest objections** — for your top three, the strongest criticism a housing researcher or juror would make, and whether you think it can be answered.
+5. **For the application** — two or three different angles I could take in the motivation text and the first ten seconds of the video. Angles, not finished copy.
 6. **What you are unsure of** — claims above that rest on your memory of Czech housing data, law, policy or existing tools rather than on something you checked. If you can search the web, check whether comparable Czech tools exist and what public housing data is available (statistical office, ministries, cadastre, price maps, rent indices), and say what you found and where. If you cannot search, say so, and mark guesses as guesses.
 
-A direction that only works for well-paid people in Prague is a weak answer. So is one that amounts to a generic mortgage calculator, a chatbot with no data behind it, or advice that the state should build more flats.
+An idea that only works for well-paid people in Prague is a weak one. So is one that amounts to a generic mortgage calculator, a chatbot with no data behind it, or advice that the state should build more flats. Leave those out rather than using them to reach the count.
 
 ## Lenses
 
